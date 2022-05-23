@@ -1,0 +1,51 @@
+/*
+
+Query #2 (-25min)
+What percentage of Orders do the top 10 users of each city contribute to their city?
+
+*/
+
+SELECT  q1.city,
+        no_of_orders_top10_users,
+        number_of_orders,
+        no_of_orders_top10_users/number_of_orders AS percentage_of_top_10_users_on_total_orders
+FROM
+  (
+    SELECT  city,
+        SUM(number_of_orders) AS no_of_orders_top10_users,
+
+    FROM
+      (
+        SELECT *
+        FROM
+        (
+          SELECT *,
+              ROW_NUMBER() OVER (PARTITION BY city ORDER BY number_of_orders DESC) AS city_rank 
+          FROM
+            (
+              SELECT --COUNT( DISTINCT order_id) AS number_of_orders_dist,
+                COUNT(  order_id) AS number_of_orders,
+                user_id,
+                --COUNT( user_id) AS number_of_users,
+                city,
+                --cuisine,
+                --SUM(amount) AS total_amount
+                -- ROW_NUMBER() OVER (PARTITION BY city ORDER BY number_of_orders DESC) AS city_rank 
+              FROM `efood-2022.main_assessment.orders`
+              GROUP BY user_id,city--,cuisine
+            
+            )
+        )WHERE city_rank <= 10
+      
+      )
+        GROUP BY city
+   ) AS q1
+INNER JOIN
+(
+   SELECT  city,
+          COUNT(DISTINCT order_id) AS number_of_orders
+          FROM `efood-2022.main_assessment.orders`
+   GROUP BY city                 
+) AS q2 ON q1.city = q2.city
+
+ORDER BY percentage_of_top_10_users_on_total_orders DESC

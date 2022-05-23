@@ -1,0 +1,173 @@
+/* 
+  Query #1
+  We want to focus on Breakfast cuisine in smaller cities of Greece. For every city that exceeds the 1,000 orders we would like to compare "Breakfast" cuisine versus the
+  total efood, creating the metrics:
+- Basket := Amount / Order
+- Frequency := Orders / Users
+- %Users that exceed 3 orders := (Users of Frequency >3) / Users
+  Order all your findings, showing us the 5 cities with the most Breakfast Orders and explain them in a few words.
+  */
+
+SELECT   subquery2.city,
+        --subquery2.number_of_orders_tot,
+        --subquery2.breakfast_orders,
+        --subquery2.number_of_users_tot,
+        subquery2.breakfast_basket,
+        subquery2.efood_basket,
+        subquery2.breakfast_freq,
+        subquery2.efood_freq,
+        subquery1.users_of_freq_3_breakfast/subquery2.breakfast_users AS breakfast_users3freq_perc,
+        subquery1.users_of_freq_3/subquery2.number_of_users_correct AS efood_users3freq_perc
+        
+FROM
+(
+    SELECT  s1.city,
+            s1.users_of_freq_3_breakfast,
+            s2.users_of_freq_3,
+            --s1.number_of_orders_breakfrast
+
+    FROM
+    (
+      SELECT  city,
+          COUNT(user_id) AS users_of_freq_3
+      FROM
+      (
+          SELECT  city,
+                  user_id,
+                  number_of_orders,
+
+          FROM
+          (
+          SELECT --COUNT( DISTINCT order_id) AS number_of_orders_dist,
+                  COUNT(  order_id) AS number_of_orders,
+                  user_id,
+                  --COUNT( user_id) AS number_of_users,
+                  city,
+                  --cuisine,
+                  --SUM(amount) AS total_amount
+          FROM `efood-2022.main_assessment.orders`
+          GROUP BY user_id,city--,cuisine
+          ORDER BY number_of_orders ASC
+          )
+          WHERE number_of_orders>3
+  )
+  GROUP BY city) AS s2
+
+  INNER JOIN
+
+  (
+          SELECT  city,
+                  COUNT(user_id) AS users_of_freq_3_breakfast,
+                  --number_of_orders_breakfrast
+          FROM(
+                  SELECT  city,
+                          user_id,
+                          number_of_orders_breakfrast,
+
+                  FROM
+                  (
+                          SELECT --COUNT( DISTINCT order_id) AS number_of_orders_dist,
+                                          COUNT(  order_id) AS number_of_orders_breakfrast,
+                                          user_id,
+                                          --COUNT( user_id) AS number_of_users,
+                                          city,
+                                          cuisine,
+                                          --SUM(amount) AS total_amount
+                                  FROM `efood-2022.main_assessment.orders`
+                          WHERE cuisine='Breakfast'
+                          GROUP BY user_id,city,cuisine
+                          ORDER BY number_of_orders_breakfrast ASC
+                  )
+                  WHERE number_of_orders_breakfrast>3
+          )
+          GROUP BY city--,number_of_orders_breakfrast
+  ) AS s1 on s1.city = s2.city
+  ) as subquery1
+
+INNER JOIN
+  (
+
+  
+    SELECT city,
+            number_of_orders_tot,
+            number_of_users_correct,
+            breakfast_basket,
+            efood_basket,
+            breakfast_freq,
+            efood_freq,
+            breakfast_users,
+            breakfast_orders
+      FROM
+      (
+        SELECT city,
+              COALESCE(breakfast_orders,0)+COALESCE(Meat_orders,0)+COALESCE(Italian_orders,0)+COALESCE(Street_food_orders,0) AS number_of_orders_tot,
+
+              --COALESCE(breakfast_users,0)+COALESCE(Meat_users,0)+COALESCE(Italian_users,0)+COALESCE(Street_food_users,0) AS number_of_users_tot,
+              number_of_users_correct,
+              breakfast_users,
+
+              breakfast_orders,
+
+              Breakfast/breakfast_orders AS breakfast_basket,
+              (Breakfast+Meat+Italian+Street_food)/(breakfast_orders+Meat_orders+Italian_orders+Street_food_orders) AS efood_basket,
+              
+
+              breakfast_orders/breakfast_users AS breakfast_freq,
+              (breakfast_orders+Meat_orders+Italian_orders+Street_food_orders)/(number_of_users_correct) AS efood_freq
+              
+        FROM
+          (
+            SELECT
+              city,
+              number_of_users_correct,
+              --cuisine,
+              --total_amount,
+              MAX(CASE WHEN cuisine = 'Breakfast' THEN number_of_users_no END) AS breakfast_users,
+              /*MAX(CASE WHEN cuisine ='Meat' THEN number_of_users END) AS Meat_users,
+              MAX(CASE WHEN cuisine ='Italian' THEN number_of_users END) AS Italian_users,
+              MAX(CASE WHEN cuisine ='Street food' THEN number_of_users END) AS Street_food_users,*/
+
+              MAX(CASE WHEN cuisine = 'Breakfast' THEN number_of_orders END) AS breakfast_orders,
+              MAX(CASE WHEN cuisine ='Meat' THEN number_of_orders END) AS Meat_orders,
+              MAX(CASE WHEN cuisine ='Italian' THEN number_of_orders END) AS Italian_orders,
+              MAX(CASE WHEN cuisine ='Street food' THEN number_of_orders END) AS Street_food_orders,
+
+              MAX(CASE WHEN cuisine = 'Breakfast' THEN total_amount END) AS Breakfast,
+              MAX(CASE WHEN cuisine ='Meat' THEN total_amount END) AS Meat,
+              MAX(CASE WHEN cuisine ='Italian' THEN total_amount END) AS Italian,
+              MAX(CASE WHEN cuisine ='Street food' THEN total_amount END) AS Street_food
+
+            FROM
+              (
+                SELECT  
+                        COUNT(DISTINCT order_id) AS number_of_orders,
+                        COUNT(DISTINCT user_id) AS number_of_users_no,
+                        number_of_users_correct,
+                        efood.city,
+                        cuisine,
+                        SUM(amount) AS total_amount
+                FROM `efood-2022.main_assessment.orders` efood
+                INNER JOIN
+                (SELECT  city,
+                         COUNT(DISTINCT user_id) AS number_of_users_correct
+                         FROM `efood-2022.main_assessment.orders`
+                         GROUP BY city 
+                )AS count1 ON count1.city= efood.city
+                GROUP BY city,cuisine,number_of_users_correct
+                ORDER BY number_of_orders ASC
+                )  
+            GROUP BY city,number_of_users_correct
+        
+          )
+          ORDER BY number_of_orders_tot DESC
+          -- WHERE number_of_orders_tot>=1000
+          --GROUP BY city--,Breakfast,Meat,Italian,Street_food
+        ) 
+          WHERE number_of_orders_tot>1000
+          ORDER BY number_of_orders_tot DESC
+    
+) 
+AS subquery2 ON subquery1.city= subquery2.city
+ORDER BY  subquery2.breakfast_orders DESC LIMIT 5
+
+
