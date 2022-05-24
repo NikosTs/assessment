@@ -12,6 +12,6 @@ The repo contains the following files:
 
 The steps for running and testing the files follow the flow they are presented above. 
 1) You could start with the SQL queries.
-2) Then run the file straightforward from the rar file.
+2) Then run the ipynb file straightforward from the rar file.
     * Studying of the report containing the analysis and the results.
 3) Final pdf report containing the comments regarding the dashboard.
